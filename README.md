@@ -9,7 +9,7 @@ A GitHub Action that loads and validates environment variables using [varlock](h
 - 🔒 **Schema validation**: Validates environment variables against your schema
 - 📋 **Summary output**: Provides detailed summaries of loaded variables
 - ⚙️ **Flexible configuration**: Supports different output formats and environments
-- ✅ **All .env.* files are supported**: You can use any .env.* file to load environment variables (not just .env.schema)
+- ✅ **All .env.\* files are supported**: You can use any .env.* file to load environment variables (not just .env.schema)
 
 ## Usage
 
@@ -303,7 +303,7 @@ The sensitive values (`DATABASE_PASSWORD` and `API_KEY`) will be automatically m
 
 ## Contributing
 
-This action is part of the varlock ecosystem. For issues and contributions, please visit the [varlock repository](https://github.com/dmno-dev/varlock).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## License
 
