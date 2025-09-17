@@ -11,6 +11,28 @@ A GitHub Action that loads and validates environment variables using [varlock](h
 - ⚙️ **Flexible configuration**: Supports different output formats and environments
 - ✅ **All .env.\* files are supported**: You can use any .env.* file to load environment variables (not just .env.schema)
 
+## Required Workflow Permissions
+
+For security best practices, we recommend using minimal permissions in your GitHub workflows. This action only requires read access to repository contents to checkout code and read configuration files.
+
+**Recommended permissions configuration:**
+
+```yaml
+permissions:
+  contents: read
+```
+
+### Why restrict permissions?
+
+- **Principle of least privilege**: Only grant the minimum permissions needed
+- **Security**: Reduces potential attack surface if the workflow is compromised
+- **Compliance**: Meets security guidelines for many organizations
+- **Audit trails**: Makes it clear what permissions each workflow requires
+
+### Default behavior
+
+If you don't specify permissions, GitHub Actions grants broad permissions by default. By explicitly setting `permissions: contents: read`, you ensure the workflow only has access to read repository contents, which is all this action needs to function properly.
+
 ## Usage
 
 ### Basic Usage
@@ -18,6 +40,9 @@ A GitHub Action that loads and validates environment variables using [varlock](h
 ```yaml
 name: Load Environment Variables
 on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -39,6 +64,9 @@ jobs:
 ```yaml
 name: Load Environment Variables
 on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -123,6 +151,9 @@ NODE_ENV=development
 name: CI/CD Pipeline
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -148,6 +179,9 @@ name: Deploy
 on:
   push:
     branches: [main, staging]
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -179,6 +213,9 @@ jobs:
 ```yaml
 name: Load Environment Variables
 on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -221,7 +258,7 @@ The action provides comprehensive error handling:
 
 ## Security Features
 
-This action leverages varlock's security features:
+This action leverages varlock's security features and implements additional GitHub Actions-specific security measures:
 
 - **Sensitive Data Protection**: Variables marked with `@sensitive` are automatically exported as GitHub secrets, preventing them from appearing in logs
 - **Schema Validation**: Ensures all required variables are present and valid
@@ -230,6 +267,14 @@ This action leverages varlock's security features:
 - **Third Party Secrets Support**: Loads secrets from third party secrets providers like 1Password, LastPass, etc.
   - Note: any CLIs you need to retrieve third party secrets will also need to be installed
 - **Automatic Secret Masking**: Sensitive values are automatically masked in GitHub Actions logs using `core.setSecret()`
+
+### Security Best Practices
+
+- **Use minimal permissions**: Always set `permissions: contents: read` in your workflow
+- **Avoid logging sensitive data**: Be careful when using `output-format: 'json'` as the JSON output may contain sensitive values
+- **Mark secrets appropriately**: Use the `@sensitive` decorator in your `.env.schema` for any secrets or sensitive configuration
+- **Regular secret rotation**: Rotate encrypted secrets in your schema files regularly
+- **Environment isolation**: Use different schema files for different environments (dev, staging, production)
 
 ## Output Formats
 
@@ -286,6 +331,8 @@ The sensitive values (`DATABASE_PASSWORD` and `API_KEY`) will be automatically m
 
 ### JSON Output Format
 
+> **Security Warning**: When using `output-format: 'json'`, the `json-env` output contains all environment variables including sensitive ones. While sensitive values are still masked in logs when used individually, the JSON blob itself may contain sensitive data. Use caution when logging, storing, or passing this output to other systems.
+
 ```yaml
 - name: Load environment variables as JSON
   uses: dmno-dev/varlock-github-action@v1
@@ -295,9 +342,10 @@ The sensitive values (`DATABASE_PASSWORD` and `API_KEY`) will be automatically m
 
 - name: Use JSON output
   run: |
-    echo "JSON output: ${{ steps.varlock.outputs.json-env }}"
+    # DO NOT log the entire JSON output as it may contain sensitive data
+    # echo "JSON output: ${{ steps.varlock.outputs.json-env }}"  # ❌ Avoid this
     
-    # Parse and use specific values
+    # Instead, parse and use specific values
     echo "Database URL: $(echo '${{ steps.varlock.outputs.json-env }}' | jq -r '.DATABASE_URL')"
 ```
 
