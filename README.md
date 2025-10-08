@@ -19,6 +19,9 @@ A GitHub Action that loads and validates environment variables using [varlock](h
 name: Load Environment Variables
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,6 +42,9 @@ jobs:
 ```yaml
 name: Load Environment Variables
 on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -123,6 +129,9 @@ NODE_ENV=development
 name: CI/CD Pipeline
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -148,6 +157,9 @@ name: Deploy
 on:
   push:
     branches: [main, staging]
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -179,6 +191,9 @@ jobs:
 ```yaml
 name: Load Environment Variables
 on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   build:
