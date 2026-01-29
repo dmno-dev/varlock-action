@@ -26,14 +26,11 @@ inputs:
 outputs:
   summary:
     description: 'Summary of loaded environment variables'
-    value: ${{ steps.varlock.outputs.summary }}
   error-count:
     description: 'Number of validation errors found'
-    value: ${{ steps.varlock.outputs.error-count }}
   json-env:
-    description: 'JSON blob containing all environment variables (only available when output-format is "json"). This will contain all environment variables, including sensitive ones. Be careful.'
-    value: ${{ steps.varlock.outputs.json-env }}
+    description: "JSON blob containing all environment variables (only available when output-format is 'json'). This will contain all environment variables, including sensitive ones. Be careful."
 
 runs:
-  using: 'node22'
+  using: 'node24'
   main: 'dist/index.js' 

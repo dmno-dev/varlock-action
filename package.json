@@ -41,7 +41,7 @@
   "author": "dmno-dev",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "peerDependencies": {
     "varlock": "^0.0.11"

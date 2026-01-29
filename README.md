@@ -29,8 +29,8 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
-      
+        uses: dmno-dev/varlock-action@v0.0.1    
+
       - name: Use loaded variables
         run: |
           echo "Database URL: $DATABASE_URL"
@@ -50,13 +50,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set environment flag
         run: echo "APP_ENV=production" >> $GITHUB_ENV
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v0.0.1
         with:
           working-directory: './config'
           show-summary: 'true'
@@ -139,7 +139,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v0.0.1
       
       - name: Run tests
         run: npm test
@@ -176,7 +176,7 @@ jobs:
           fi
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v0.0.1
         with:
           show-summary: 'true'
       
@@ -205,7 +205,7 @@ jobs:
         run: echo "APP_ENV=production" >> $GITHUB_ENV
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v0.0.1
         with:
           working-directory: './config/environments'
       
@@ -228,7 +228,7 @@ The action provides comprehensive error handling:
 
 ```yaml
 - name: Load environment variables
-  uses: dmno-dev/varlock-github-action@v1
+  uses: dmno-dev/varlock-action@v0.0.1
   with:
     fail-on-error: 'false'  # Continue on validation errors
     show-summary: 'true'
@@ -322,4 +322,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## License
 
-MIT License - see the [varlock repository](https://github.com/dmno-dev/varlock) for details. 
+MIT License - see the [varlock repository](https://github.com/dmno-dev/varlock) for details.
