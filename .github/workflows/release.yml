@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed for creating tags and releases
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for changelog
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: v${{ steps.version.outputs.VERSION }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # skip if tag already exists (e.g. re-run or no version bump)
