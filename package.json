@@ -1,11 +1,10 @@
 {
   "name": "@varlock/github-action",
   "description": "GitHub Action for varlock - load and validate environment variables with schema validation",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dmno-dev/varlock.git",
-    "directory": "packages/varlock-github-action"
+    "url": "https://github.com/dmno-dev/varlock-action.git"
   },
   "type": "module",
   "main": "dist/index.js",
@@ -41,10 +40,10 @@
   "author": "dmno-dev",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "peerDependencies": {
-    "varlock": "^0.0.11"
+    "varlock": "^0.5.0"
   },
   "dependencies": {
     "@actions/core": "^1.10.1",
@@ -56,7 +55,7 @@
     "@types/node": "^24.3.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2",
-    "varlock": "^0.0.11",
+    "varlock": "^0.5.0",
     "vitest": "^3.2.4"
   },
   "packageManager": "pnpm@10.15.1+sha512.34e538c329b5553014ca8e8f4535997f96180a1d0f614339357449935350d924e22f8614682191264ec33d1462ac21561aff97f6bb18065351c162c7e8f6de67"

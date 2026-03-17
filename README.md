@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v1
       
       - name: Use loaded variables
         run: |
@@ -56,7 +56,7 @@ jobs:
         run: echo "APP_ENV=production" >> $GITHUB_ENV
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v1
         with:
           working-directory: './config'
           show-summary: 'true'
@@ -139,7 +139,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v1
       
       - name: Run tests
         run: npm test
@@ -176,7 +176,7 @@ jobs:
           fi
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v1
         with:
           show-summary: 'true'
       
@@ -205,7 +205,7 @@ jobs:
         run: echo "APP_ENV=production" >> $GITHUB_ENV
       
       - name: Load environment variables
-        uses: dmno-dev/varlock-github-action@v1
+        uses: dmno-dev/varlock-action@v1
         with:
           working-directory: './config/environments'
       
@@ -228,7 +228,7 @@ The action provides comprehensive error handling:
 
 ```yaml
 - name: Load environment variables
-  uses: dmno-dev/varlock-github-action@v1
+  uses: dmno-dev/varlock-action@v1
   with:
     fail-on-error: 'false'  # Continue on validation errors
     show-summary: 'true'
@@ -287,7 +287,7 @@ API_KEY=sk-1234567890abcdef
 
 ```yaml
 - name: Load environment variables
-  uses: dmno-dev/varlock-github-action@v1
+  uses: dmno-dev/varlock-action@v1
 
 - name: Use variables
   run: |
@@ -303,7 +303,7 @@ The sensitive values (`DATABASE_PASSWORD` and `API_KEY`) will be automatically m
 
 ```yaml
 - name: Load environment variables as JSON
-  uses: dmno-dev/varlock-github-action@v1
+  uses: dmno-dev/varlock-action@v1
   with:
     output-format: 'json'
   id: varlock
