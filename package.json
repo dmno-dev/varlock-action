@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dmno-dev/varlock.git",
-    "directory": "packages/varlock-github-action"
+    "url": "https://github.com/dmno-dev/varlock-action.git"
   },
   "type": "module",
   "main": "dist/index.js",
