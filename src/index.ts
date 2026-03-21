@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import { execSync } from 'child_process';
-import { readdirSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
+import path from 'path';
 
 interface ActionInputs {
   workingDirectory: string;
@@ -27,17 +28,41 @@ interface SerializedEnvGraph {
 }
 
 export function getInputs(): ActionInputs {
+  const showSummaryInput = core.getInput('show-summary');
+  const failOnErrorInput = core.getInput('fail-on-error');
+  const outputFormatInput = core.getInput('output-format');
+
   return {
     workingDirectory: core.getInput('working-directory') || '.',
-    showSummary: core.getInput('show-summary') === 'true',
-    failOnError: core.getInput('fail-on-error') === 'true',
-    outputFormat: (core.getInput('output-format') as 'env' | 'json') || 'env',
+    showSummary: showSummaryInput === '' ? true : showSummaryInput === 'true',
+    failOnError: failOnErrorInput === '' ? true : failOnErrorInput === 'true',
+    outputFormat: outputFormatInput === 'json' ? 'json' : 'env',
   };
 }
 
-export function checkVarlockInstalled(): boolean {
+function quoteCliPath(cliPath: string): string {
+  return cliPath.includes(' ') ? `"${cliPath}"` : cliPath;
+}
+
+export function findLocalVarlockBinary(workingDirectory: string): string | undefined {
+  const dir = path.resolve(workingDirectory);
+  const { root } = path.parse(dir);
+  const binaryName = process.platform === 'win32' ? 'varlock.cmd' : 'varlock';
+  let cursor = dir;
+
+  while (true) {
+    const candidate = path.join(cursor, 'node_modules', '.bin', binaryName);
+    if (existsSync(candidate)) return candidate;
+    if (cursor === root) break;
+    cursor = path.dirname(cursor);
+  }
+
+  return undefined;
+}
+
+export function checkVarlockInstalled(varlockCommand = 'varlock'): boolean {
   try {
-    execSync('varlock --version', { stdio: 'pipe' });
+    execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: 'pipe', encoding: 'utf8' });
     return true;
   } catch {
     return false;
@@ -63,13 +88,10 @@ export function checkForEnvFiles(workingDir: string): boolean {
 
 export function installVarlock(): void {
   core.info('Installing varlock...');
-  // TODO: Add a check to see if varlock is already installed and use that
   try {
-    // Try to install varlock using npm
     execSync('npm install -g varlock', { stdio: 'inherit' });
   } catch {
     try {
-      // Fallback to curl installation
       execSync('curl -fsSL https://raw.githubusercontent.com/dmno-dev/varlock/main/install.sh | sh', { stdio: 'inherit' });
     } catch (error) {
       core.setFailed(`Failed to install varlock: ${error}`);
@@ -77,72 +99,66 @@ export function installVarlock(): void {
   }
 }
 
+function parseErrorCountFromOutput(output: string): number {
+  const explicitCountMatch = output.match(/Found\s+(\d+)\s+validation error\(s\)/i);
+  if (explicitCountMatch) return Number.parseInt(explicitCountMatch[1], 10);
+  return (output.match(/error/gi) || []).length;
+}
+
+function runVarlockCommand(
+  varlockCommand: string,
+  args: string[],
+  workingDirectory: string,
+): { output: string; exitCode: number } {
+  const command = `${quoteCliPath(varlockCommand)} ${args.join(' ')}`;
+
+  try {
+    const output = execSync(command, {
+      cwd: workingDirectory,
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
+    return { output: output.toString(), exitCode: 0 };
+  } catch (error: any) {
+    const output = error?.stdout ? error.stdout.toString() : error?.message || '';
+    return { output, exitCode: error?.status ?? 1 };
+  }
+}
+
 export function runVarlockLoad(inputs: ActionInputs): {
   output: string;
   errorCount: number;
+  summaryOutput?: string;
+  exitCode: number;
   envGraph?: SerializedEnvGraph;
 } {
-  const defaultArgs = ['load'];
+  const varlockCommand = findLocalVarlockBinary(inputs.workingDirectory) ?? 'varlock';
+  const jsonResult = runVarlockCommand(varlockCommand, ['load', '--format', 'json-full'], inputs.workingDirectory);
 
-  // If show-summary is true, run without format options to get human-readable output
-  if (inputs.showSummary) {
-    core.info(`Running: varlock ${defaultArgs.join(' ')}`);
-
+  let envGraph: SerializedEnvGraph | undefined;
+  if (jsonResult.output.trim().length > 0) {
     try {
-      const output = execSync(`varlock ${defaultArgs.join(' ')}`, {
-        cwd: inputs.workingDirectory,
-        stdio: 'pipe',
-        encoding: 'utf8',
-      }).toString();
-
-      return { output, errorCount: 0 };
-    } catch (error: any) {
-      if (error.stdout) {
-        const output = error.stdout.toString();
-        // Parse error count from output if available
-        const errorCount = (output.match(/error/gi) || []).length;
-        return { output, errorCount };
-      }
-      throw error;
+      envGraph = JSON.parse(jsonResult.output) as SerializedEnvGraph;
+    } catch {
+      envGraph = undefined;
     }
   }
 
-  // Otherwise, use json-full format to get sensitive information
-  const internalArgs = [...defaultArgs, '--format', 'json-full'];
-
-  // we may not want to show this in the output
-  // core.info(`Running: varlock ${internalArgs.join(' ')}`);
-
-  try {
-    const output = execSync(`varlock ${internalArgs.join(' ')}`, {
-      cwd: inputs.workingDirectory,
-      stdio: 'pipe',
-      encoding: 'utf8',
-    }).toString();
-
-    // Parse the json-full output to get the environment graph
-    const envGraph = JSON.parse(output) as SerializedEnvGraph;
-
-    return { output, errorCount: 0, envGraph };
-  } catch (error: any) {
-    if (error.stdout) {
-      const output = error.stdout.toString();
-      // Parse error count from output if available
-      const errorCount = (output.match(/error/gi) || []).length;
-
-      // Try to parse as json-full if possible
-      let envGraph: SerializedEnvGraph | undefined;
-      try {
-        envGraph = JSON.parse(output) as SerializedEnvGraph;
-      } catch {
-        core.setFailed('Failed to parse varlock output.');
-      }
-
-      return { output, errorCount, envGraph };
-    }
-
-    throw error;
+  let summaryOutput: string | undefined;
+  if (inputs.showSummary) {
+    core.info('Running: varlock load');
+    summaryOutput = runVarlockCommand(varlockCommand, ['load'], inputs.workingDirectory).output;
   }
+
+  const errorCount = parseErrorCountFromOutput(summaryOutput ?? jsonResult.output);
+
+  return {
+    output: jsonResult.output,
+    errorCount,
+    summaryOutput,
+    exitCode: jsonResult.exitCode,
+    envGraph,
+  };
 }
 
 export function setEnvironmentVariables(envGraph: SerializedEnvGraph): void {
@@ -187,14 +203,16 @@ export function outputJsonBlob(envGraph: SerializedEnvGraph): void {
 async function run(): Promise<void> {
   try {
     const inputs = getInputs();
+    const localVarlockBinary = findLocalVarlockBinary(inputs.workingDirectory);
+    const initialVarlockCommand = localVarlockBinary ?? 'varlock';
 
     core.info('🔍 Checking for varlock installation...');
-    let varlockInstalled = checkVarlockInstalled();
+    let varlockInstalled = checkVarlockInstalled(initialVarlockCommand);
 
     if (!varlockInstalled) {
       core.info('📦 Varlock not found, installing...');
       installVarlock();
-      varlockInstalled = checkVarlockInstalled();
+      varlockInstalled = checkVarlockInstalled('varlock');
 
       if (!varlockInstalled) {
         core.setFailed('Failed to install varlock');
@@ -217,15 +235,18 @@ async function run(): Promise<void> {
     core.info('✅ Environment files found');
 
     core.info('🚀 Loading environment variables with varlock...');
-    const { output, errorCount, envGraph } = runVarlockLoad(inputs);
+    const {
+      output, errorCount, envGraph, summaryOutput, exitCode,
+    } = runVarlockLoad(inputs);
 
     // Set outputs
     core.setOutput('error-count', errorCount.toString());
 
     if (inputs.showSummary) {
-      core.setOutput('summary', output);
+      const summary = summaryOutput ?? '';
+      core.setOutput('summary', summary);
       core.info('📋 Environment Summary:');
-      core.info(output);
+      core.info(summary);
     }
 
     if (envGraph) {
@@ -239,22 +260,19 @@ async function run(): Promise<void> {
         outputJsonBlob(envGraph);
       }
     } else {
-      core.warning('Could not parse varlock output as json-full');
-      if (inputs.outputFormat === 'json') {
-        core.setFailed('JSON output format requires valid varlock json-full output');
-      }
+      core.setFailed('ENV output requires valid varlock json-full output');
+      return;
     }
 
-    if (errorCount > 0) {
+    if (errorCount > 0 || exitCode !== 0) {
       const message = `Found ${errorCount} validation error(s)`;
       if (inputs.failOnError) {
         core.setFailed(message);
+        return;
       } else {
         core.warning(message);
       }
     }
-
-
 
     core.info('✅ Environment variables loaded successfully');
   } catch (error: any) {

@@ -22,7 +22,7 @@ jobs:
         run: echo "APP_ENV=testing" >> $GITHUB_ENV
       
       - name: Load environment variables with varlock
-        uses: dmno-dev/varlock-action@v1
+        uses: dmno-dev/varlock-action@v1.0.1
       
       - name: Use loaded environment variables
         run: |
@@ -54,7 +54,7 @@ jobs:
         run: echo "APP_ENV=production" >> $GITHUB_ENV
       
       - name: Load production environment variables
-        uses: dmno-dev/varlock-action@v1
+        uses: dmno-dev/varlock-action@v1.0.1
         with:
           working-directory: './config'
           show-summary: 'true'
