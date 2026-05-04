@@ -10,6 +10,13 @@ interface ActionInputs {
   outputFormat: 'env' | 'json';
 }
 
+interface SerializedEnvGraphErrors {
+  /** Per-item validation errors, keyed by config item key */
+  configItems?: Record<string, string>;
+  /** Root-level errors not tied to a specific config item */
+  root?: Array<string>;
+}
+
 interface SerializedEnvGraph {
   basePath?: string;
   sources: Array<{
@@ -25,6 +32,8 @@ interface SerializedEnvGraph {
     value: any;
     isSensitive: boolean;
   }>;
+  /** Present only when load produced errors (varlock 1.0+) */
+  errors?: SerializedEnvGraphErrors;
 }
 
 export function getInputs(): ActionInputs {
@@ -69,6 +78,27 @@ export function checkVarlockInstalled(varlockCommand = 'varlock'): boolean {
   }
 }
 
+const MIN_VARLOCK_VERSION: [number, number, number] = [1, 1, 0];
+
+export function getVarlockVersion(varlockCommand = 'varlock'): string | undefined {
+  try {
+    const out = execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: 'pipe', encoding: 'utf8' });
+    const match = out.toString().trim().match(/(\d+)\.(\d+)\.(\d+)/);
+    return match ? `${match[1]}.${match[2]}.${match[3]}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isVersionAtLeast(version: string, min: [number, number, number]): boolean {
+  const parts = version.split('.').map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < 3; i++) {
+    if ((parts[i] ?? 0) > min[i]) return true;
+    if ((parts[i] ?? 0) < min[i]) return false;
+  }
+  return true;
+}
+
 export function checkForEnvFiles(workingDir: string): boolean {
   try {
     const files = readdirSync(workingDir);
@@ -99,17 +129,16 @@ export function installVarlock(): void {
   }
 }
 
-function parseErrorCountFromOutput(output: string): number {
-  const explicitCountMatch = output.match(/Found\s+(\d+)\s+validation error\(s\)/i);
-  if (explicitCountMatch) return Number.parseInt(explicitCountMatch[1], 10);
-  return (output.match(/error/gi) || []).length;
+function countErrors(errors?: SerializedEnvGraphErrors): number {
+  if (!errors) return 0;
+  return (errors.root?.length ?? 0) + Object.keys(errors.configItems ?? {}).length;
 }
 
 function runVarlockCommand(
   varlockCommand: string,
   args: string[],
   workingDirectory: string,
-): { output: string; exitCode: number } {
+): { output: string; stderr: string; exitCode: number } {
   const command = `${quoteCliPath(varlockCommand)} ${args.join(' ')}`;
 
   try {
@@ -118,10 +147,11 @@ function runVarlockCommand(
       stdio: 'pipe',
       encoding: 'utf8',
     });
-    return { output: output.toString(), exitCode: 0 };
+    return { output: output.toString(), stderr: '', exitCode: 0 };
   } catch (error: any) {
     const output = error?.stdout ? error.stdout.toString() : error?.message || '';
-    return { output, exitCode: error?.status ?? 1 };
+    const stderr = error?.stderr ? error.stderr.toString() : '';
+    return { output, stderr, exitCode: error?.status ?? 1 };
   }
 }
 
@@ -133,7 +163,13 @@ export function runVarlockLoad(inputs: ActionInputs): {
   envGraph?: SerializedEnvGraph;
 } {
   const varlockCommand = findLocalVarlockBinary(inputs.workingDirectory) ?? 'varlock';
-  const jsonResult = runVarlockCommand(varlockCommand, ['load', '--format', 'json-full'], inputs.workingDirectory);
+
+  // Single invocation: JSON to stdout, redacted human summary to stderr.
+  // `--summary-stderr` requires varlock >= 1.1.0.
+  const args = ['load', '--format', 'json-full'];
+  if (inputs.showSummary) args.push('--summary-stderr');
+
+  const jsonResult = runVarlockCommand(varlockCommand, args, inputs.workingDirectory);
 
   let envGraph: SerializedEnvGraph | undefined;
   if (jsonResult.output.trim().length > 0) {
@@ -144,18 +180,10 @@ export function runVarlockLoad(inputs: ActionInputs): {
     }
   }
 
-  let summaryOutput: string | undefined;
-  if (inputs.showSummary) {
-    core.info('Running: varlock load');
-    summaryOutput = runVarlockCommand(varlockCommand, ['load'], inputs.workingDirectory).output;
-  }
-
-  const errorCount = parseErrorCountFromOutput(summaryOutput ?? jsonResult.output);
-
   return {
     output: jsonResult.output,
-    errorCount,
-    summaryOutput,
+    errorCount: countErrors(envGraph?.errors),
+    summaryOutput: inputs.showSummary ? jsonResult.stderr : undefined,
     exitCode: jsonResult.exitCode,
     envGraph,
   };
@@ -208,11 +236,13 @@ async function run(): Promise<void> {
 
     core.info('🔍 Checking for varlock installation...');
     let varlockInstalled = checkVarlockInstalled(initialVarlockCommand);
+    let activeVarlockCommand = initialVarlockCommand;
 
     if (!varlockInstalled) {
       core.info('📦 Varlock not found, installing...');
       installVarlock();
       varlockInstalled = checkVarlockInstalled('varlock');
+      activeVarlockCommand = 'varlock';
 
       if (!varlockInstalled) {
         core.setFailed('Failed to install varlock');
@@ -220,7 +250,18 @@ async function run(): Promise<void> {
       }
     }
 
-    core.info('✅ Varlock is available');
+    const version = getVarlockVersion(activeVarlockCommand);
+    if (!version || !isVersionAtLeast(version, MIN_VARLOCK_VERSION)) {
+      const found = version ?? 'unknown';
+      const required = MIN_VARLOCK_VERSION.join('.');
+      core.setFailed(
+        `varlock-action requires varlock >=${required} but found ${found}. `
+        + `Upgrade varlock, or pin to varlock-action@v1.0.1 to keep using older varlock versions.`,
+      );
+      return;
+    }
+
+    core.info(`✅ Varlock is available (v${version})`);
 
     core.info('🔍 Checking for environment files...');
     const hasEnvFiles = checkForEnvFiles(inputs.workingDirectory);
@@ -236,7 +277,7 @@ async function run(): Promise<void> {
 
     core.info('🚀 Loading environment variables with varlock...');
     const {
-      output, errorCount, envGraph, summaryOutput, exitCode,
+      errorCount, envGraph, summaryOutput, exitCode,
     } = runVarlockLoad(inputs);
 
     // Set outputs
@@ -249,29 +290,34 @@ async function run(): Promise<void> {
       core.info(summary);
     }
 
-    if (envGraph) {
-      if (inputs.outputFormat === 'env') {
-        // Export as environment variables and secrets
-        core.info('🔧 Setting environment variables...');
-        setEnvironmentVariables(envGraph);
-      } else if (inputs.outputFormat === 'json') {
-        // Output as JSON blob
-        core.info('📄 Outputting JSON blob...');
-        outputJsonBlob(envGraph);
-      }
-    } else {
-      core.setFailed('ENV output requires valid varlock json-full output');
+    if (!envGraph) {
+      core.setFailed(`varlock load --format json-full failed (exit code ${exitCode})`);
       return;
     }
 
-    if (errorCount > 0 || exitCode !== 0) {
+    if (inputs.outputFormat === 'env') {
+      core.info('🔧 Setting environment variables...');
+      setEnvironmentVariables(envGraph);
+    } else if (inputs.outputFormat === 'json') {
+      core.info('📄 Outputting JSON blob...');
+      outputJsonBlob(envGraph);
+    }
+
+    if (errorCount > 0) {
+      if (envGraph.errors?.root) {
+        for (const msg of envGraph.errors.root) core.error(msg);
+      }
+      if (envGraph.errors?.configItems) {
+        for (const [key, msg] of Object.entries(envGraph.errors.configItems)) {
+          core.error(`${key}: ${msg}`);
+        }
+      }
       const message = `Found ${errorCount} validation error(s)`;
       if (inputs.failOnError) {
         core.setFailed(message);
         return;
-      } else {
-        core.warning(message);
       }
+      core.warning(message);
     }
 
     core.info('✅ Environment variables loaded successfully');
