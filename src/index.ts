@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 
@@ -49,8 +49,37 @@ export function getInputs(): ActionInputs {
   };
 }
 
-function quoteCliPath(cliPath: string): string {
-  return cliPath.includes(' ') ? `"${cliPath}"` : cliPath;
+/**
+ * Run an executable safely without shell interpretation. Args are passed as
+ * an array, never concatenated into a command string. On Windows, .cmd/.bat
+ * shims are invoked via cmd.exe /c since Node refuses to spawn them directly
+ * (CVE-2024-27980) and we want to avoid `shell: true`.
+ */
+function runFile(
+  file: string,
+  args: string[],
+  options: { cwd?: string } = {},
+): { stdout: string; stderr: string; exitCode: number } {
+  const isWindowsCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(file);
+  const spawnFile = isWindowsCmd ? 'cmd.exe' : file;
+  const spawnArgs = isWindowsCmd ? ['/d', '/s', '/c', file, ...args] : args;
+
+  const result = spawnSync(spawnFile, spawnArgs, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    // Explicit: no shell. Defends against accidental injection if file/args
+    // contain spaces or shell metacharacters.
+    shell: false,
+  });
+
+  if (result.error) {
+    return { stdout: '', stderr: result.error.message, exitCode: 1 };
+  }
+  return {
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    exitCode: result.status ?? 1,
+  };
 }
 
 export function findLocalVarlockBinary(workingDirectory: string): string | undefined {
@@ -70,24 +99,16 @@ export function findLocalVarlockBinary(workingDirectory: string): string | undef
 }
 
 export function checkVarlockInstalled(varlockCommand = 'varlock'): boolean {
-  try {
-    execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: 'pipe', encoding: 'utf8' });
-    return true;
-  } catch {
-    return false;
-  }
+  return runFile(varlockCommand, ['--version']).exitCode === 0;
 }
 
 const MIN_VARLOCK_VERSION: [number, number, number] = [1, 1, 0];
 
 export function getVarlockVersion(varlockCommand = 'varlock'): string | undefined {
-  try {
-    const out = execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: 'pipe', encoding: 'utf8' });
-    const match = out.toString().trim().match(/(\d+)\.(\d+)\.(\d+)/);
-    return match ? `${match[1]}.${match[2]}.${match[3]}` : undefined;
-  } catch {
-    return undefined;
-  }
+  const result = runFile(varlockCommand, ['--version']);
+  if (result.exitCode !== 0) return undefined;
+  const match = result.stdout.trim().match(/(\d+)\.(\d+)\.(\d+)/);
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : undefined;
 }
 
 function isVersionAtLeast(version: string, min: [number, number, number]): boolean {
@@ -139,20 +160,8 @@ function runVarlockCommand(
   args: string[],
   workingDirectory: string,
 ): { output: string; stderr: string; exitCode: number } {
-  const command = `${quoteCliPath(varlockCommand)} ${args.join(' ')}`;
-
-  try {
-    const output = execSync(command, {
-      cwd: workingDirectory,
-      stdio: 'pipe',
-      encoding: 'utf8',
-    });
-    return { output: output.toString(), stderr: '', exitCode: 0 };
-  } catch (error: any) {
-    const output = error?.stdout ? error.stdout.toString() : error?.message || '';
-    const stderr = error?.stderr ? error.stderr.toString() : '';
-    return { output, stderr, exitCode: error?.status ?? 1 };
-  }
+  const result = runFile(varlockCommand, args, { cwd: workingDirectory });
+  return { output: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
 
 export function runVarlockLoad(inputs: ActionInputs): {

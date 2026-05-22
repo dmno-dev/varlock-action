@@ -19705,8 +19705,25 @@ function getInputs() {
     outputFormat: outputFormatInput === "json" ? "json" : "env"
   };
 }
-function quoteCliPath(cliPath) {
-  return cliPath.includes(" ") ? `"${cliPath}"` : cliPath;
+function runFile(file, args, options = {}) {
+  const isWindowsCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(file);
+  const spawnFile = isWindowsCmd ? "cmd.exe" : file;
+  const spawnArgs = isWindowsCmd ? ["/d", "/s", "/c", file, ...args] : args;
+  const result = child_process.spawnSync(spawnFile, spawnArgs, {
+    cwd: options.cwd,
+    encoding: "utf8",
+    // Explicit: no shell. Defends against accidental injection if file/args
+    // contain spaces or shell metacharacters.
+    shell: false
+  });
+  if (result.error) {
+    return { stdout: "", stderr: result.error.message, exitCode: 1 };
+  }
+  return {
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    exitCode: result.status ?? 1
+  };
 }
 function findLocalVarlockBinary(workingDirectory) {
   const dir = path__default.default.resolve(workingDirectory);
@@ -19722,22 +19739,14 @@ function findLocalVarlockBinary(workingDirectory) {
   return void 0;
 }
 function checkVarlockInstalled(varlockCommand = "varlock") {
-  try {
-    child_process.execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: "pipe", encoding: "utf8" });
-    return true;
-  } catch {
-    return false;
-  }
+  return runFile(varlockCommand, ["--version"]).exitCode === 0;
 }
 var MIN_VARLOCK_VERSION = [1, 1, 0];
 function getVarlockVersion(varlockCommand = "varlock") {
-  try {
-    const out = child_process.execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: "pipe", encoding: "utf8" });
-    const match = out.toString().trim().match(/(\d+)\.(\d+)\.(\d+)/);
-    return match ? `${match[1]}.${match[2]}.${match[3]}` : void 0;
-  } catch {
-    return void 0;
-  }
+  const result = runFile(varlockCommand, ["--version"]);
+  if (result.exitCode !== 0) return void 0;
+  const match = result.stdout.trim().match(/(\d+)\.(\d+)\.(\d+)/);
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : void 0;
 }
 function isVersionAtLeast(version, min) {
   const parts = version.split(".").map((n) => Number.parseInt(n, 10));
@@ -19778,19 +19787,8 @@ function countErrors(errors) {
   return (errors.root?.length ?? 0) + Object.keys(errors.configItems ?? {}).length;
 }
 function runVarlockCommand(varlockCommand, args, workingDirectory) {
-  const command = `${quoteCliPath(varlockCommand)} ${args.join(" ")}`;
-  try {
-    const output = child_process.execSync(command, {
-      cwd: workingDirectory,
-      stdio: "pipe",
-      encoding: "utf8"
-    });
-    return { output: output.toString(), stderr: "", exitCode: 0 };
-  } catch (error2) {
-    const output = error2?.stdout ? error2.stdout.toString() : error2?.message || "";
-    const stderr = error2?.stderr ? error2.stderr.toString() : "";
-    return { output, stderr, exitCode: error2?.status ?? 1 };
-  }
+  const result = runFile(varlockCommand, args, { cwd: workingDirectory });
+  return { output: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
 function runVarlockLoad(inputs) {
   const varlockCommand = findLocalVarlockBinary(inputs.workingDirectory) ?? "varlock";
