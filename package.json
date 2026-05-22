@@ -1,7 +1,7 @@
 {
   "name": "@varlock/github-action",
   "description": "GitHub Action for varlock - load and validate environment variables with schema validation",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/dmno-dev/varlock-action.git"
@@ -43,7 +43,7 @@
     "node": ">=24"
   },
   "peerDependencies": {
-    "varlock": "^0.5.0"
+    "varlock": ">=1.1.0"
   },
   "dependencies": {
     "@actions/core": "^1.10.1",

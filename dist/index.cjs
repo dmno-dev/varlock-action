@@ -428,18 +428,18 @@ var require_tunnel = __commonJS({
             res.statusCode
           );
           socket.destroy();
-          var error = new Error("tunneling socket could not be established, statusCode=" + res.statusCode);
-          error.code = "ECONNRESET";
-          options.request.emit("error", error);
+          var error2 = new Error("tunneling socket could not be established, statusCode=" + res.statusCode);
+          error2.code = "ECONNRESET";
+          options.request.emit("error", error2);
           self.removeSocket(placeholder);
           return;
         }
         if (head.length > 0) {
           debug("got illegal response body from proxy");
           socket.destroy();
-          var error = new Error("got illegal response body from proxy");
-          error.code = "ECONNRESET";
-          options.request.emit("error", error);
+          var error2 = new Error("got illegal response body from proxy");
+          error2.code = "ECONNRESET";
+          options.request.emit("error", error2);
           self.removeSocket(placeholder);
           return;
         }
@@ -454,9 +454,9 @@ var require_tunnel = __commonJS({
           cause.message,
           cause.stack
         );
-        var error = new Error("tunneling socket could not be established, cause=" + cause.message);
-        error.code = "ECONNRESET";
-        options.request.emit("error", error);
+        var error2 = new Error("tunneling socket could not be established, cause=" + cause.message);
+        error2.code = "ECONNRESET";
+        options.request.emit("error", error2);
         self.removeSocket(placeholder);
       }
     };
@@ -5559,7 +5559,7 @@ Content-Type: ${value.type || "application/octet-stream"}\r
         throw new TypeError("Body is unusable");
       }
       const promise = createDeferredPromise();
-      const errorSteps = (error) => promise.reject(error);
+      const errorSteps = (error2) => promise.reject(error2);
       const successSteps = (data) => {
         try {
           promise.resolve(convertBytesToJSValue(data));
@@ -5844,16 +5844,16 @@ var require_request = __commonJS({
           this.onError(err);
         }
       }
-      onError(error) {
+      onError(error2) {
         this.onFinally();
         if (channels.error.hasSubscribers) {
-          channels.error.publish({ request: this, error });
+          channels.error.publish({ request: this, error: error2 });
         }
         if (this.aborted) {
           return;
         }
         this.aborted = true;
-        return this[kHandler].onError(error);
+        return this[kHandler].onError(error2);
       }
       onFinally() {
         if (this.errorHandler) {
@@ -6705,8 +6705,8 @@ var require_RedirectHandler = __commonJS({
       onUpgrade(statusCode, headers, socket) {
         this.handler.onUpgrade(statusCode, headers, socket);
       }
-      onError(error) {
-        this.handler.onError(error);
+      onError(error2) {
+        this.handler.onError(error2);
       }
       onHeaders(statusCode, headers, resume, statusText) {
         this.location = this.history.length >= this.maxRedirections || util.isDisturbed(this.opts.body) ? null : parseLocation(statusCode, headers);
@@ -8840,7 +8840,7 @@ var require_pool = __commonJS({
         this[kOptions] = { ...util.deepClone(options), connect, allowH2 };
         this[kOptions].interceptors = options.interceptors ? { ...options.interceptors } : void 0;
         this[kFactory] = factory;
-        this.on("connectionError", (origin2, targets, error) => {
+        this.on("connectionError", (origin2, targets, error2) => {
           for (const target of targets) {
             const idx = this[kClients].indexOf(target);
             if (idx !== -1) {
@@ -10436,13 +10436,13 @@ var require_mock_utils = __commonJS({
       if (mockDispatch2.data.callback) {
         mockDispatch2.data = { ...mockDispatch2.data, ...mockDispatch2.data.callback(opts) };
       }
-      const { data: { statusCode, data, headers, trailers, error }, delay, persist } = mockDispatch2;
+      const { data: { statusCode, data, headers, trailers, error: error2 }, delay, persist } = mockDispatch2;
       const { timesInvoked, times } = mockDispatch2;
       mockDispatch2.consumed = !persist && timesInvoked >= times;
       mockDispatch2.pending = timesInvoked < times;
-      if (error !== null) {
+      if (error2 !== null) {
         deleteMockDispatch(this[kDispatches], key);
-        handler.onError(error);
+        handler.onError(error2);
         return true;
       }
       if (typeof delay === "number" && delay > 0) {
@@ -10480,19 +10480,19 @@ var require_mock_utils = __commonJS({
         if (agent.isMockActive) {
           try {
             mockDispatch.call(this, opts, handler);
-          } catch (error) {
-            if (error instanceof MockNotMatchedError) {
+          } catch (error2) {
+            if (error2 instanceof MockNotMatchedError) {
               const netConnect = agent[kGetNetConnect]();
               if (netConnect === false) {
-                throw new MockNotMatchedError(`${error.message}: subsequent request to origin ${origin} was not allowed (net.connect disabled)`);
+                throw new MockNotMatchedError(`${error2.message}: subsequent request to origin ${origin} was not allowed (net.connect disabled)`);
               }
               if (checkNetConnect(netConnect, origin)) {
                 originalDispatch.call(this, opts, handler);
               } else {
-                throw new MockNotMatchedError(`${error.message}: subsequent request to origin ${origin} was not allowed (net.connect is not enabled for this origin)`);
+                throw new MockNotMatchedError(`${error2.message}: subsequent request to origin ${origin} was not allowed (net.connect is not enabled for this origin)`);
               }
             } else {
-              throw error;
+              throw error2;
             }
           }
         } else {
@@ -10654,11 +10654,11 @@ var require_mock_interceptor = __commonJS({
       /**
        * Mock an undici request with a defined error.
        */
-      replyWithError(error) {
-        if (typeof error === "undefined") {
+      replyWithError(error2) {
+        if (typeof error2 === "undefined") {
           throw new InvalidArgumentError("error must be defined");
         }
-        const newMockDispatch = addMockDispatch(this[kDispatches], this[kDispatchKey], { error });
+        const newMockDispatch = addMockDispatch(this[kDispatches], this[kDispatchKey], { error: error2 });
         return new MockScope(newMockDispatch);
       }
       /**
@@ -12970,17 +12970,17 @@ var require_fetch = __commonJS({
         this.emit("terminated", reason);
       }
       // https://fetch.spec.whatwg.org/#fetch-controller-abort
-      abort(error) {
+      abort(error2) {
         if (this.state !== "ongoing") {
           return;
         }
         this.state = "aborted";
-        if (!error) {
-          error = new DOMException2("The operation was aborted.", "AbortError");
+        if (!error2) {
+          error2 = new DOMException2("The operation was aborted.", "AbortError");
         }
-        this.serializedAbortReason = error;
-        this.connection?.destroy(error);
-        this.emit("terminated", error);
+        this.serializedAbortReason = error2;
+        this.connection?.destroy(error2);
+        this.emit("terminated", error2);
       }
     };
     function fetch(input, init = {}) {
@@ -13084,13 +13084,13 @@ var require_fetch = __commonJS({
         performance.markResourceTiming(timingInfo, originalURL.href, initiatorType, globalThis2, cacheState);
       }
     }
-    function abortFetch(p, request, responseObject, error) {
-      if (!error) {
-        error = new DOMException2("The operation was aborted.", "AbortError");
+    function abortFetch(p, request, responseObject, error2) {
+      if (!error2) {
+        error2 = new DOMException2("The operation was aborted.", "AbortError");
       }
-      p.reject(error);
+      p.reject(error2);
       if (request.body != null && isReadable(request.body?.stream)) {
-        request.body.stream.cancel(error).catch((err) => {
+        request.body.stream.cancel(error2).catch((err) => {
           if (err.code === "ERR_INVALID_STATE") {
             return;
           }
@@ -13102,7 +13102,7 @@ var require_fetch = __commonJS({
       }
       const response = responseObject[kState];
       if (response.body != null && isReadable(response.body?.stream)) {
-        response.body.stream.cancel(error).catch((err) => {
+        response.body.stream.cancel(error2).catch((err) => {
           if (err.code === "ERR_INVALID_STATE") {
             return;
           }
@@ -13863,13 +13863,13 @@ var require_fetch = __commonJS({
               fetchParams.controller.ended = true;
               this.body.push(null);
             },
-            onError(error) {
+            onError(error2) {
               if (this.abort) {
                 fetchParams.controller.off("terminated", this.abort);
               }
-              this.body?.destroy(error);
-              fetchParams.controller.terminate(error);
-              reject(error);
+              this.body?.destroy(error2);
+              fetchParams.controller.terminate(error2);
+              reject(error2);
             },
             onUpgrade(status, headersList, socket) {
               if (status !== 101) {
@@ -14331,8 +14331,8 @@ var require_util4 = __commonJS({
                   }
                   fr[kResult] = result;
                   fireAProgressEvent("load", fr);
-                } catch (error) {
-                  fr[kError] = error;
+                } catch (error2) {
+                  fr[kError] = error2;
                   fireAProgressEvent("error", fr);
                 }
                 if (fr[kState] !== "loading") {
@@ -14341,13 +14341,13 @@ var require_util4 = __commonJS({
               });
               break;
             }
-          } catch (error) {
+          } catch (error2) {
             if (fr[kAborted]) {
               return;
             }
             queueMicrotask(() => {
               fr[kState] = "done";
-              fr[kError] = error;
+              fr[kError] = error2;
               fireAProgressEvent("error", fr);
               if (fr[kState] !== "loading") {
                 fireAProgressEvent("loadend", fr);
@@ -16333,11 +16333,11 @@ var require_connection = __commonJS({
         });
       }
     }
-    function onSocketError(error) {
+    function onSocketError(error2) {
       const { ws } = this;
       ws[kReadyState] = states.CLOSING;
       if (channels.socketError.hasSubscribers) {
-        channels.socketError.publish(error);
+        channels.socketError.publish(error2);
       }
       this.destroy();
     }
@@ -17961,12 +17961,12 @@ var require_oidc_utils = __commonJS({
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
           const httpclient = _OidcClient.createHttpClient();
-          const res = yield httpclient.getJson(id_token_url).catch((error) => {
+          const res = yield httpclient.getJson(id_token_url).catch((error2) => {
             throw new Error(`Failed to get ID Token. 
  
-        Error Code : ${error.statusCode}
+        Error Code : ${error2.statusCode}
  
-        Error Message: ${error.message}`);
+        Error Message: ${error2.message}`);
           });
           const id_token = (_a = res.result) === null || _a === void 0 ? void 0 : _a.value;
           if (!id_token) {
@@ -17987,8 +17987,8 @@ var require_oidc_utils = __commonJS({
             const id_token = yield _OidcClient.getCall(id_token_url);
             (0, core_1.setSecret)(id_token);
             return id_token;
-          } catch (error) {
-            throw new Error(`Error message: ${error.message}`);
+          } catch (error2) {
+            throw new Error(`Error message: ${error2.message}`);
           }
         });
       }
@@ -19105,7 +19105,7 @@ var require_toolrunner = __commonJS({
               this._debug(`STDIO streams have closed for tool '${this.toolPath}'`);
               state.CheckComplete();
             });
-            state.on("done", (error, exitCode) => {
+            state.on("done", (error2, exitCode) => {
               if (stdbuffer.length > 0) {
                 this.emit("stdline", stdbuffer);
               }
@@ -19113,8 +19113,8 @@ var require_toolrunner = __commonJS({
                 this.emit("errline", errbuffer);
               }
               cp.removeAllListeners();
-              if (error) {
-                reject(error);
+              if (error2) {
+                reject(error2);
               } else {
                 resolve(exitCode);
               }
@@ -19209,14 +19209,14 @@ var require_toolrunner = __commonJS({
         this.emit("debug", message);
       }
       _setResult() {
-        let error;
+        let error2;
         if (this.processExited) {
           if (this.processError) {
-            error = new Error(`There was an error when attempting to execute the process '${this.toolPath}'. This may indicate the process failed to start. Error: ${this.processError}`);
+            error2 = new Error(`There was an error when attempting to execute the process '${this.toolPath}'. This may indicate the process failed to start. Error: ${this.processError}`);
           } else if (this.processExitCode !== 0 && !this.options.ignoreReturnCode) {
-            error = new Error(`The process '${this.toolPath}' failed with exit code ${this.processExitCode}`);
+            error2 = new Error(`The process '${this.toolPath}' failed with exit code ${this.processExitCode}`);
           } else if (this.processStderr && this.options.failOnStdErr) {
-            error = new Error(`The process '${this.toolPath}' failed because one or more lines were written to the STDERR stream`);
+            error2 = new Error(`The process '${this.toolPath}' failed because one or more lines were written to the STDERR stream`);
           }
         }
         if (this.timeout) {
@@ -19224,7 +19224,7 @@ var require_toolrunner = __commonJS({
           this.timeout = null;
         }
         this.done = true;
-        this.emit("done", error, this.processExitCode);
+        this.emit("done", error2, this.processExitCode);
       }
       static HandleTimeout(state) {
         if (state.done) {
@@ -19604,7 +19604,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     exports.setCommandEcho = setCommandEcho;
     function setFailed2(message) {
       process.exitCode = ExitCode.Failure;
-      error(message);
+      error2(message);
     }
     exports.setFailed = setFailed2;
     function isDebug() {
@@ -19615,10 +19615,10 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("debug", {}, message);
     }
     exports.debug = debug;
-    function error(message, properties = {}) {
+    function error2(message, properties = {}) {
       (0, command_1.issueCommand)("error", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports.error = error;
+    exports.error = error2;
     function warning2(message, properties = {}) {
       (0, command_1.issueCommand)("warning", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
@@ -19705,8 +19705,25 @@ function getInputs() {
     outputFormat: outputFormatInput === "json" ? "json" : "env"
   };
 }
-function quoteCliPath(cliPath) {
-  return cliPath.includes(" ") ? `"${cliPath}"` : cliPath;
+function runFile(file, args, options = {}) {
+  const isWindowsCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(file);
+  const spawnFile = isWindowsCmd ? "cmd.exe" : file;
+  const spawnArgs = isWindowsCmd ? ["/d", "/s", "/c", file, ...args] : args;
+  const result = child_process.spawnSync(spawnFile, spawnArgs, {
+    cwd: options.cwd,
+    encoding: "utf8",
+    // Explicit: no shell. Defends against accidental injection if file/args
+    // contain spaces or shell metacharacters.
+    shell: false
+  });
+  if (result.error) {
+    return { stdout: "", stderr: result.error.message, exitCode: 1 };
+  }
+  return {
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    exitCode: result.status ?? 1
+  };
 }
 function findLocalVarlockBinary(workingDirectory) {
   const dir = path__default.default.resolve(workingDirectory);
@@ -19722,12 +19739,22 @@ function findLocalVarlockBinary(workingDirectory) {
   return void 0;
 }
 function checkVarlockInstalled(varlockCommand = "varlock") {
-  try {
-    child_process.execSync(`${quoteCliPath(varlockCommand)} --version`, { stdio: "pipe", encoding: "utf8" });
-    return true;
-  } catch {
-    return false;
+  return runFile(varlockCommand, ["--version"]).exitCode === 0;
+}
+var MIN_VARLOCK_VERSION = [1, 1, 0];
+function getVarlockVersion(varlockCommand = "varlock") {
+  const result = runFile(varlockCommand, ["--version"]);
+  if (result.exitCode !== 0) return void 0;
+  const match = result.stdout.trim().match(/(\d+)\.(\d+)\.(\d+)/);
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : void 0;
+}
+function isVersionAtLeast(version, min) {
+  const parts = version.split(".").map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < 3; i++) {
+    if ((parts[i] ?? 0) > min[i]) return true;
+    if ((parts[i] ?? 0) < min[i]) return false;
   }
+  return true;
 }
 function checkForEnvFiles(workingDir) {
   try {
@@ -19738,8 +19765,8 @@ function checkForEnvFiles(workingDir) {
       return true;
     }
     return false;
-  } catch (error) {
-    core.warning(`Error reading directory ${workingDir}: ${error}`);
+  } catch (error2) {
+    core.warning(`Error reading directory ${workingDir}: ${error2}`);
     return false;
   }
 }
@@ -19750,33 +19777,24 @@ function installVarlock() {
   } catch {
     try {
       child_process.execSync("curl -fsSL https://raw.githubusercontent.com/dmno-dev/varlock/main/install.sh | sh", { stdio: "inherit" });
-    } catch (error) {
-      core.setFailed(`Failed to install varlock: ${error}`);
+    } catch (error2) {
+      core.setFailed(`Failed to install varlock: ${error2}`);
     }
   }
 }
-function parseErrorCountFromOutput(output) {
-  const explicitCountMatch = output.match(/Found\s+(\d+)\s+validation error\(s\)/i);
-  if (explicitCountMatch) return Number.parseInt(explicitCountMatch[1], 10);
-  return (output.match(/error/gi) || []).length;
+function countErrors(errors) {
+  if (!errors) return 0;
+  return (errors.root?.length ?? 0) + Object.keys(errors.configItems ?? {}).length;
 }
 function runVarlockCommand(varlockCommand, args, workingDirectory) {
-  const command = `${quoteCliPath(varlockCommand)} ${args.join(" ")}`;
-  try {
-    const output = child_process.execSync(command, {
-      cwd: workingDirectory,
-      stdio: "pipe",
-      encoding: "utf8"
-    });
-    return { output: output.toString(), exitCode: 0 };
-  } catch (error) {
-    const output = error?.stdout ? error.stdout.toString() : error?.message || "";
-    return { output, exitCode: error?.status ?? 1 };
-  }
+  const result = runFile(varlockCommand, args, { cwd: workingDirectory });
+  return { output: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
 function runVarlockLoad(inputs) {
   const varlockCommand = findLocalVarlockBinary(inputs.workingDirectory) ?? "varlock";
-  const jsonResult = runVarlockCommand(varlockCommand, ["load", "--format", "json-full"], inputs.workingDirectory);
+  const args = ["load", "--format", "json-full"];
+  if (inputs.showSummary) args.push("--summary-stderr");
+  const jsonResult = runVarlockCommand(varlockCommand, args, inputs.workingDirectory);
   let envGraph;
   if (jsonResult.output.trim().length > 0) {
     try {
@@ -19785,16 +19803,10 @@ function runVarlockLoad(inputs) {
       envGraph = void 0;
     }
   }
-  let summaryOutput;
-  if (inputs.showSummary) {
-    core.info("Running: varlock load");
-    summaryOutput = runVarlockCommand(varlockCommand, ["load"], inputs.workingDirectory).output;
-  }
-  const errorCount = parseErrorCountFromOutput(summaryOutput ?? jsonResult.output);
   return {
     output: jsonResult.output,
-    errorCount,
-    summaryOutput,
+    errorCount: countErrors(envGraph?.errors),
+    summaryOutput: inputs.showSummary ? jsonResult.stderr : void 0,
     exitCode: jsonResult.exitCode,
     envGraph
   };
@@ -19834,16 +19846,27 @@ async function run() {
     const initialVarlockCommand = localVarlockBinary ?? "varlock";
     core.info("\u{1F50D} Checking for varlock installation...");
     let varlockInstalled = checkVarlockInstalled(initialVarlockCommand);
+    let activeVarlockCommand = initialVarlockCommand;
     if (!varlockInstalled) {
       core.info("\u{1F4E6} Varlock not found, installing...");
       installVarlock();
       varlockInstalled = checkVarlockInstalled("varlock");
+      activeVarlockCommand = "varlock";
       if (!varlockInstalled) {
         core.setFailed("Failed to install varlock");
         return;
       }
     }
-    core.info("\u2705 Varlock is available");
+    const version = getVarlockVersion(activeVarlockCommand);
+    if (!version || !isVersionAtLeast(version, MIN_VARLOCK_VERSION)) {
+      const found = version ?? "unknown";
+      const required = MIN_VARLOCK_VERSION.join(".");
+      core.setFailed(
+        `varlock-action requires varlock >=${required} but found ${found}. Upgrade varlock, or pin to varlock-action@v1.0.1 to keep using older varlock versions.`
+      );
+      return;
+    }
+    core.info(`\u2705 Varlock is available (v${version})`);
     core.info("\u{1F50D} Checking for environment files...");
     const hasEnvFiles = checkForEnvFiles(inputs.workingDirectory);
     if (!hasEnvFiles) {
@@ -19855,7 +19878,6 @@ async function run() {
     core.info("\u2705 Environment files found");
     core.info("\u{1F680} Loading environment variables with varlock...");
     const {
-      output,
       errorCount,
       envGraph,
       summaryOutput,
@@ -19868,30 +19890,36 @@ async function run() {
       core.info("\u{1F4CB} Environment Summary:");
       core.info(summary);
     }
-    if (envGraph) {
-      if (inputs.outputFormat === "env") {
-        core.info("\u{1F527} Setting environment variables...");
-        setEnvironmentVariables(envGraph);
-      } else if (inputs.outputFormat === "json") {
-        core.info("\u{1F4C4} Outputting JSON blob...");
-        outputJsonBlob(envGraph);
-      }
-    } else {
-      core.setFailed("ENV output requires valid varlock json-full output");
+    if (!envGraph) {
+      core.setFailed(`varlock load --format json-full failed (exit code ${exitCode})`);
       return;
     }
-    if (errorCount > 0 || exitCode !== 0) {
+    if (inputs.outputFormat === "env") {
+      core.info("\u{1F527} Setting environment variables...");
+      setEnvironmentVariables(envGraph);
+    } else if (inputs.outputFormat === "json") {
+      core.info("\u{1F4C4} Outputting JSON blob...");
+      outputJsonBlob(envGraph);
+    }
+    if (errorCount > 0) {
+      if (envGraph.errors?.root) {
+        for (const msg of envGraph.errors.root) core.error(msg);
+      }
+      if (envGraph.errors?.configItems) {
+        for (const [key, msg] of Object.entries(envGraph.errors.configItems)) {
+          core.error(`${key}: ${msg}`);
+        }
+      }
       const message = `Found ${errorCount} validation error(s)`;
       if (inputs.failOnError) {
         core.setFailed(message);
         return;
-      } else {
-        core.warning(message);
       }
+      core.warning(message);
     }
     core.info("\u2705 Environment variables loaded successfully");
-  } catch (error) {
-    core.setFailed(`Action failed: ${error.message}`);
+  } catch (error2) {
+    core.setFailed(`Action failed: ${error2.message}`);
   }
 }
 run();
@@ -19908,6 +19936,7 @@ exports.checkForEnvFiles = checkForEnvFiles;
 exports.checkVarlockInstalled = checkVarlockInstalled;
 exports.findLocalVarlockBinary = findLocalVarlockBinary;
 exports.getInputs = getInputs;
+exports.getVarlockVersion = getVarlockVersion;
 exports.installVarlock = installVarlock;
 exports.outputJsonBlob = outputJsonBlob;
 exports.runVarlockLoad = runVarlockLoad;
