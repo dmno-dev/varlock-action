@@ -13,6 +13,8 @@ import {
   setEnvironmentVariables,
   outputJsonBlob,
   getInputs,
+  countErrors,
+  formatValidationErrorMessage,
 } from '../src/index';
 
 // Mock the GitHub Actions core module for testing
@@ -423,6 +425,40 @@ PORT=3000`;
       // The function doesn't return anything, but we can verify it was called
       // by checking that no errors were thrown
       expect(true).toBe(true);
+    });
+  });
+
+  describe('validation error helpers', () => {
+    it('should count structured validation errors from env graph', () => {
+      const errors = {
+        root: ['Schema file is invalid'],
+        configItems: {
+          PORT: 'Unable to coerce string to number',
+        },
+      };
+
+      expect(countErrors(errors)).toBe(2);
+    });
+
+    it('should format structured validation errors for setFailed', () => {
+      const errors = {
+        root: ['Schema file is invalid'],
+        configItems: {
+          PORT: 'Unable to coerce string to number',
+        },
+      };
+
+      expect(formatValidationErrorMessage(2, errors)).toBe(
+        'Found 2 validation error(s):\n  - Schema file is invalid\n  - PORT: Unable to coerce string to number',
+      );
+    });
+
+    it('should fall back to stderr details when structured errors are unavailable', () => {
+      const stderr = 'Invalid items:\n- PORT: Unable to coerce string to number';
+
+      expect(formatValidationErrorMessage(1, undefined, stderr)).toBe(
+        'Found 1 validation error(s):\n\nInvalid items:\n- PORT: Unable to coerce string to number',
+      );
     });
   });
 

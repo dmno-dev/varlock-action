@@ -150,9 +150,36 @@ export function installVarlock(): void {
   }
 }
 
-function countErrors(errors?: SerializedEnvGraphErrors): number {
+export function countErrors(errors?: SerializedEnvGraphErrors): number {
   if (!errors) return 0;
   return (errors.root?.length ?? 0) + Object.keys(errors.configItems ?? {}).length;
+}
+
+export function formatValidationErrorMessage(
+  errorCount: number,
+  errors?: SerializedEnvGraphErrors,
+  stderr?: string,
+): string {
+  const lines: string[] = [`Found ${errorCount} validation error(s):`];
+
+  if (errors?.root) {
+    for (const message of errors.root) {
+      lines.push(`  - ${message}`);
+    }
+  }
+
+  if (errors?.configItems) {
+    for (const [key, message] of Object.entries(errors.configItems)) {
+      lines.push(`  - ${key}: ${message}`);
+    }
+  }
+
+  if (countErrors(errors) === 0 && stderr?.trim()) {
+    lines.push('');
+    lines.push(stderr.trim());
+  }
+
+  return lines.join('\n');
 }
 
 function runVarlockCommand(
@@ -168,6 +195,7 @@ export function runVarlockLoad(inputs: ActionInputs): {
   output: string;
   errorCount: number;
   summaryOutput?: string;
+  stderr?: string;
   exitCode: number;
   envGraph?: SerializedEnvGraph;
 } {
@@ -189,10 +217,13 @@ export function runVarlockLoad(inputs: ActionInputs): {
     }
   }
 
+  const stderr = jsonResult.stderr.trim() || undefined;
+
   return {
     output: jsonResult.output,
     errorCount: countErrors(envGraph?.errors),
-    summaryOutput: inputs.showSummary ? jsonResult.stderr : undefined,
+    summaryOutput: inputs.showSummary ? stderr : undefined,
+    stderr,
     exitCode: jsonResult.exitCode,
     envGraph,
   };
@@ -286,21 +317,28 @@ async function run(): Promise<void> {
 
     core.info('🚀 Loading environment variables with varlock...');
     const {
-      errorCount, envGraph, summaryOutput, exitCode,
+      errorCount, envGraph, summaryOutput, exitCode, stderr,
     } = runVarlockLoad(inputs);
 
+    const resolvedErrorCount = errorCount > 0 ? errorCount : (exitCode !== 0 ? 1 : 0);
+
     // Set outputs
-    core.setOutput('error-count', errorCount.toString());
+    core.setOutput('error-count', resolvedErrorCount.toString());
 
     if (inputs.showSummary) {
-      const summary = summaryOutput ?? '';
+      const summary = summaryOutput?.trim() || '';
       core.setOutput('summary', summary);
-      core.info('📋 Environment Summary:');
-      core.info(summary);
+      if (summary) {
+        core.info('📋 Environment Summary:');
+        core.info(summary);
+      }
     }
 
     if (!envGraph) {
-      core.setFailed(`varlock load --format json-full failed (exit code ${exitCode})`);
+      const failureMessage = stderr
+        ? `varlock load --format json-full failed (exit code ${exitCode})\n\n${stderr}`
+        : `varlock load --format json-full failed (exit code ${exitCode})`;
+      core.setFailed(failureMessage);
       return;
     }
 
@@ -312,16 +350,12 @@ async function run(): Promise<void> {
       outputJsonBlob(envGraph);
     }
 
-    if (errorCount > 0) {
-      if (envGraph.errors?.root) {
-        for (const msg of envGraph.errors.root) core.error(msg);
-      }
-      if (envGraph.errors?.configItems) {
-        for (const [key, msg] of Object.entries(envGraph.errors.configItems)) {
-          core.error(`${key}: ${msg}`);
-        }
-      }
-      const message = `Found ${errorCount} validation error(s)`;
+    if (resolvedErrorCount > 0 || exitCode !== 0) {
+      const message = formatValidationErrorMessage(
+        resolvedErrorCount || errorCount || 1,
+        envGraph.errors,
+        stderr,
+      );
       if (inputs.failOnError) {
         core.setFailed(message);
         return;

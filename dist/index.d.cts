@@ -34,14 +34,17 @@ declare function checkVarlockInstalled(varlockCommand?: string): boolean;
 declare function getVarlockVersion(varlockCommand?: string): string | undefined;
 declare function checkForEnvFiles(workingDir: string): boolean;
 declare function installVarlock(): void;
+declare function countErrors(errors?: SerializedEnvGraphErrors): number;
+declare function formatValidationErrorMessage(errorCount: number, errors?: SerializedEnvGraphErrors, stderr?: string): string;
 declare function runVarlockLoad(inputs: ActionInputs): {
     output: string;
     errorCount: number;
     summaryOutput?: string;
+    stderr?: string;
     exitCode: number;
     envGraph?: SerializedEnvGraph;
 };
 declare function setEnvironmentVariables(envGraph: SerializedEnvGraph): void;
 declare function outputJsonBlob(envGraph: SerializedEnvGraph): void;
 
-export { checkForEnvFiles, checkVarlockInstalled, findLocalVarlockBinary, getInputs, getVarlockVersion, installVarlock, outputJsonBlob, runVarlockLoad, setEnvironmentVariables };
+export { checkForEnvFiles, checkVarlockInstalled, countErrors, findLocalVarlockBinary, formatValidationErrorMessage, getInputs, getVarlockVersion, installVarlock, outputJsonBlob, runVarlockLoad, setEnvironmentVariables };
