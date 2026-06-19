@@ -31,8 +31,8 @@ importers:
         specifier: ^5.9.2
         version: 5.9.2
       varlock:
-        specifier: ^0.5.0
-        version: 0.5.0
+        specifier: ^1.7.2
+        version: 1.7.2
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)
@@ -854,8 +854,8 @@ packages:
   universal-user-agent@6.0.1:
     resolution: {integrity: sha512-yCzhz6FN2wU1NiiQRogkTQszlQSlpWaw8SvVegAc+bDxbzHgh1vX8uIe8OYyMH6DwH+sdTJsgMl36+mSMdRJIQ==}
 
-  varlock@0.5.0:
-    resolution: {integrity: sha512-jfFNdzK+pznQWyp6eHv7X3iImEmNG7KaGZL2sQJxTlifxRtIwgNknLKmds8zPUhUMdcCybhJy52lewgscu8pkg==}
+  varlock@1.7.2:
+    resolution: {integrity: sha512-ZiyKMPW/NStvroygZynKSukVfq1auC3Nq06Eu3qkrMVaEPeSeI64TbWE5QCW0Eo9pWlu/as/Yl+OnhL8f/guRw==}
     engines: {bun: '>=1.3.3', node: '>=22'}
     hasBin: true
 
@@ -1671,7 +1671,7 @@ snapshots:
 
   universal-user-agent@6.0.1: {}
 
-  varlock@0.5.0: {}
+  varlock@1.7.2: {}
 
   vite-node@3.2.4(@types/node@24.3.0):
     dependencies:
