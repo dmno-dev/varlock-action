@@ -1,7 +1,7 @@
 {
   "name": "@varlock/github-action",
   "description": "GitHub Action for varlock - load and validate environment variables with schema validation",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "repository": {
     "type": "git",
     "url": "https://github.com/dmno-dev/varlock-action.git"

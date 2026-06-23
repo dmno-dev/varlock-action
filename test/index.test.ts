@@ -2,13 +2,17 @@ import {
   describe, it, expect, beforeEach, afterEach, vi,
 } from 'vitest';
 import { execSync } from 'child_process';
-import { writeFileSync } from 'fs';
+import {
+  writeFileSync, mkdirSync, mkdtempSync, rmSync,
+} from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 
 // Import the actual functions from the worker code
 import {
   checkVarlockInstalled,
   checkForEnvFiles,
+  findLocalVarlockBinary,
   runVarlockLoad,
   setEnvironmentVariables,
   outputJsonBlob,
@@ -74,6 +78,41 @@ describe('Varlock GitHub Action - Testing Actual Worker Functions', () => {
       expect(typeof result).toBe('boolean');
       // We can't easily mock execSync in this context, so we just verify the function
       // returns a boolean and doesn't throw an error
+    });
+  });
+
+  describe('findLocalVarlockBinary', () => {
+    // The platform-appropriate shim bun/npm would create in node_modules/.bin.
+    // On Windows the action probes varlock.cmd/.exe/varlock; elsewhere just varlock.
+    const shimName = process.platform === 'win32' ? 'varlock.cmd' : 'varlock';
+    let tmpRoot: string;
+
+    beforeEach(() => {
+      tmpRoot = mkdtempSync(join(tmpdir(), 'varlock-action-test-'));
+    });
+
+    afterEach(() => {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    });
+
+    it('finds a shim installed in an ancestor node_modules/.bin', () => {
+      const binDir = join(tmpRoot, 'node_modules', '.bin');
+      mkdirSync(binDir, { recursive: true });
+      const shimPath = join(binDir, shimName);
+      writeFileSync(shimPath, '');
+
+      // Work from a nested package dir to exercise the upward walk
+      const workingDir = join(tmpRoot, 'packages', 'some-pkg');
+      mkdirSync(workingDir, { recursive: true });
+
+      expect(findLocalVarlockBinary(workingDir)).toBe(shimPath);
+    });
+
+    it('returns undefined when no local shim exists', () => {
+      const workingDir = join(tmpRoot, 'packages', 'some-pkg');
+      mkdirSync(workingDir, { recursive: true });
+
+      expect(findLocalVarlockBinary(workingDir)).toBeUndefined();
     });
   });
 
