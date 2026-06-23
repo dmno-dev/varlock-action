@@ -16,7 +16,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Set environment flag
         run: echo "APP_ENV=testing" >> $GITHUB_ENV
@@ -48,7 +48,7 @@ jobs:
     needs: test-with-varlock
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Set environment flag
         run: echo "APP_ENV=production" >> $GITHUB_ENV

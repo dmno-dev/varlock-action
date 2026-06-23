@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: write  # needed for creating tags and releases
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # full history for changelog
 
