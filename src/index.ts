@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import { execSync, spawnSync } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import path from 'path';
 
 interface ActionInputs {
@@ -105,7 +105,20 @@ function runFile(
 }
 
 export function findLocalVarlockBinary(workingDirectory: string): string | undefined {
+  if (workingDirectory.includes('\0')) return undefined;
   const dir = path.resolve(workingDirectory);
+  const workspaceRoot = path.resolve(process.cwd());
+  const relativeToWorkspace = path.relative(workspaceRoot, dir);
+  if (relativeToWorkspace.startsWith('..') || path.isAbsolute(relativeToWorkspace)) {
+    return undefined;
+  }
+  if (!existsSync(dir)) return undefined;
+  try {
+    if (!statSync(dir).isDirectory()) return undefined;
+  } catch {
+    return undefined;
+  }
+
   const { root } = path.parse(dir);
   // Package managers create different bin shims on Windows: npm/pnpm produce a
   // `.cmd`, while bun produces a `.exe` launcher (and a bare `varlock` script).
