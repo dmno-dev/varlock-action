@@ -19705,10 +19705,20 @@ function getInputs() {
     outputFormat: outputFormatInput === "json" ? "json" : "env"
   };
 }
+function resolveWindowsExecutable(command) {
+  const result = child_process.spawnSync("where", [command], { encoding: "utf8", shell: false });
+  if (result.status !== 0 || !result.stdout) return void 0;
+  const matches = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return matches.find((match) => /\.(cmd|bat|exe)$/i.test(match)) ?? matches[0];
+}
 function runFile(file, args, options = {}) {
-  const isWindowsCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(file);
-  const spawnFile = isWindowsCmd ? "cmd.exe" : file;
-  const spawnArgs = isWindowsCmd ? ["/d", "/s", "/c", file, ...args] : args;
+  let resolvedFile = file;
+  if (process.platform === "win32" && path__default.default.basename(file) === file && !path__default.default.extname(file)) {
+    resolvedFile = resolveWindowsExecutable(file) ?? file;
+  }
+  const isWindowsCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(resolvedFile);
+  const spawnFile = isWindowsCmd ? "cmd.exe" : resolvedFile;
+  const spawnArgs = isWindowsCmd ? ["/d", "/s", "/c", resolvedFile, ...args] : args;
   const result = child_process.spawnSync(spawnFile, spawnArgs, {
     cwd: options.cwd,
     encoding: "utf8",
@@ -19728,11 +19738,13 @@ function runFile(file, args, options = {}) {
 function findLocalVarlockBinary(workingDirectory) {
   const dir = path__default.default.resolve(workingDirectory);
   const { root } = path__default.default.parse(dir);
-  const binaryName = process.platform === "win32" ? "varlock.cmd" : "varlock";
+  const binaryNames = process.platform === "win32" ? ["varlock.cmd", "varlock.exe", "varlock"] : ["varlock"];
   let cursor = dir;
   while (true) {
-    const candidate = path__default.default.join(cursor, "node_modules", ".bin", binaryName);
-    if (fs.existsSync(candidate)) return candidate;
+    for (const binaryName of binaryNames) {
+      const candidate = path__default.default.join(cursor, "node_modules", ".bin", binaryName);
+      if (fs.existsSync(candidate)) return candidate;
+    }
     if (cursor === root) break;
     cursor = path__default.default.dirname(cursor);
   }

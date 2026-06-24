@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import { execSync, spawnSync } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import path from 'path';
 
 interface ActionInputs {
@@ -50,6 +50,21 @@ export function getInputs(): ActionInputs {
 }
 
 /**
+ * On Windows, resolve a bare command name (e.g. "varlock") to a concrete
+ * executable path via `where`. Node's spawn with shell:false does not apply
+ * PATHEXT, so a globally-installed `varlock.cmd` on PATH is invisible unless
+ * resolved to its full path first. Prefers directly-runnable extensions
+ * (.cmd/.bat/.exe). Returns undefined if nothing is found (caller falls back
+ * to the bare name and surfaces the resulting spawn error).
+ */
+function resolveWindowsExecutable(command: string): string | undefined {
+  const result = spawnSync('where', [command], { encoding: 'utf8', shell: false });
+  if (result.status !== 0 || !result.stdout) return undefined;
+  const matches = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return matches.find((match) => /\.(cmd|bat|exe)$/i.test(match)) ?? matches[0];
+}
+
+/**
  * Run an executable safely without shell interpretation. Args are passed as
  * an array, never concatenated into a command string. On Windows, .cmd/.bat
  * shims are invoked via cmd.exe /c since Node refuses to spawn them directly
@@ -60,9 +75,16 @@ function runFile(
   args: string[],
   options: { cwd?: string } = {},
 ): { stdout: string; stderr: string; exitCode: number } {
-  const isWindowsCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(file);
-  const spawnFile = isWindowsCmd ? 'cmd.exe' : file;
-  const spawnArgs = isWindowsCmd ? ['/d', '/s', '/c', file, ...args] : args;
+  // A bare command name (no directory, no extension) won't resolve under
+  // spawnSync({shell:false}) on Windows — resolve it to a real path first.
+  let resolvedFile = file;
+  if (process.platform === 'win32' && path.basename(file) === file && !path.extname(file)) {
+    resolvedFile = resolveWindowsExecutable(file) ?? file;
+  }
+
+  const isWindowsCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolvedFile);
+  const spawnFile = isWindowsCmd ? 'cmd.exe' : resolvedFile;
+  const spawnArgs = isWindowsCmd ? ['/d', '/s', '/c', resolvedFile, ...args] : args;
 
   const result = spawnSync(spawnFile, spawnArgs, {
     cwd: options.cwd,
@@ -83,14 +105,36 @@ function runFile(
 }
 
 export function findLocalVarlockBinary(workingDirectory: string): string | undefined {
+  if (workingDirectory.includes('\0')) return undefined;
   const dir = path.resolve(workingDirectory);
+  const workspaceRoot = path.resolve(process.cwd());
+  const relativeToWorkspace = path.relative(workspaceRoot, dir);
+  if (relativeToWorkspace.startsWith('..') || path.isAbsolute(relativeToWorkspace)) {
+    return undefined;
+  }
+  if (!existsSync(dir)) return undefined;
+  try {
+    if (!statSync(dir).isDirectory()) return undefined;
+  } catch {
+    return undefined;
+  }
+
   const { root } = path.parse(dir);
-  const binaryName = process.platform === 'win32' ? 'varlock.cmd' : 'varlock';
+  // Package managers create different bin shims on Windows: npm/pnpm produce a
+  // `.cmd`, while bun produces a `.exe` launcher (and a bare `varlock` script).
+  // Probe all of them so a locally-installed varlock is found regardless of the
+  // package manager. Order matters: `.cmd`/`.exe` are directly runnable (see
+  // runFile), the extensionless shim is the fallback.
+  const binaryNames = process.platform === 'win32'
+    ? ['varlock.cmd', 'varlock.exe', 'varlock']
+    : ['varlock'];
   let cursor = dir;
 
   while (true) {
-    const candidate = path.join(cursor, 'node_modules', '.bin', binaryName);
-    if (existsSync(candidate)) return candidate;
+    for (const binaryName of binaryNames) {
+      const candidate = path.join(cursor, 'node_modules', '.bin', binaryName);
+      if (existsSync(candidate)) return candidate;
+    }
     if (cursor === root) break;
     cursor = path.dirname(cursor);
   }
